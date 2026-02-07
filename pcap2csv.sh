@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 #
 # =============================================================================
-# pcap2csv - Portable PCAP to CSV artifact extractor
+# pcap2csv - Fast PCAP triage into analyst-friendly CSV output
 # =============================================================================
 #
 # Purpose:
@@ -53,6 +53,22 @@ TLS_CSV=""
 FLOWS_CSV=""
 TIMELINE_CSV=""
 CUSTOM_RULES_FILE=""
+
+
+print_banner() {
+cat << 'EOF'
+                           ___
+    ____  _________ _____ |__ \ ___________   __
+   / __ \/ ___/ __ `/ __ \__/ // ___/ ___/ | / /
+  / /_/ / /__/ /_/ / /_/ / __// /__(__  )| |/ /
+ / .___/\___/\__,_/ .___/____/\___/____/ |___/
+/_/              /_/
+
+**Fast PCAP triage into analyst-friendly CSV output**
+
+EOF
+}
+
 
 ############################
 # LOGGING
@@ -471,6 +487,7 @@ export_timeline_csv() {
 ############################
 
 main() {
+    print_banner
     parse_args "$@"
     check_dependencies
     init_paths
