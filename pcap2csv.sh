@@ -481,7 +481,7 @@ main() {
     export_alerts_csv
     export_dns_csv
     export_http_csv
-	export_ftp_csv
+    export_ftp_csv
     export_tls_csv
     export_flows_csv
     export_timeline_csv
