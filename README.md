@@ -45,18 +45,20 @@ chmod +x pcap2csv.sh
 
 All output is written to: `pcap2csv_output/`
 
-Given capture.pcap, the script produces the following:
+![](img/pcap2csv_output_folder.png)
 
-capture_alerts.csv – Suricata alerts
+Given `capture.pcap`, the script produces the following:
 
-capture_dns.csv – DNS queries/responses
+- capture_alerts.csv – Suricata alerts
+- capture_dns.csv – DNS queries/responses
+- capture_http.csv – HTTP request/response metadata
+- capture_tls.csv – TLS/SNI, certificate info
+- capture_ftp.csv – FTP commands/transfers
+- capture_flows.csv – Connection statistics
+- capture_timeline.csv – Chronologically merged events
 
-capture_http.csv – HTTP request/response metadata
+![](img/pcap2csv_timeline.png)
 
-capture_tls.csv – TLS/SNI, certificate info
+![](img/pcap2csv_alerts.png)
 
-capture_ftp.csv – FTP commands/transfers
-
-capture_flows.csv – Connection statistics
-
-capture_timeline.csv – Chronologically merged events
+Dataset in the demo screenshots has been generated out of pcaps distributed from https://www.malware-traffic-analysis.net/
