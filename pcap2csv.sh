@@ -192,6 +192,8 @@ init_paths() {
     FTP_CSV="${OUTDIR}/${PCAP_BASENAME}_ftp.csv"
     SMB_CSV="${OUTDIR}/${PCAP_BASENAME}_smb.csv"
 	SSH_CSV="${OUTDIR}/${PCAP_BASENAME}_ssh.csv"
+	RDP_CSV="${OUTDIR}/${PCAP_BASENAME}_rdp.csv"
+
 }
 
 ############################
@@ -491,6 +493,31 @@ export_ssh_csv() {
     log "SSH events exported: $(wc -l < "$SSH_CSV") lines (including header)"
 }
 
+export_rdp_csv() {
+    log "Exporting ${RDP_CSV}"
+
+    # CSV header
+    echo "timestamp,src_ip,src_port,dest_ip,dest_port,proto,rdp_event_type,protocol,cookie,tx_id" > "$RDP_CSV"
+
+    jq -r '
+      select(.event_type=="rdp") |
+      [
+        .timestamp,
+        .src_ip,
+        .src_port,
+        .dest_ip,
+        .dest_port,
+        .proto,
+        .rdp.event_type,
+        (.rdp.protocol // ""),
+        (.rdp.cookie // ""),
+        (.rdp.tx_id // "")
+      ] | @csv
+    ' "$EVE_JSON" >> "$RDP_CSV"
+
+    log "RDP events exported: $(wc -l < "$RDP_CSV") lines (including header)"
+}
+
 
 #------------------------------------------------------------------------------
 # export_timeline_csv
@@ -498,7 +525,7 @@ export_ssh_csv() {
 # Extracts a unified timeline from the Suricata eve.json log into a CSV.
 # Each line represents an event with:
 #   - timestamp: event timestamp
-#   - event_type: Suricata event type (alert, dns, http, tls, ftp, smb)
+#   - event_type: Suricata event type (alert, dns, http, tls, ftp, smb, ssh, rdp)
 #   - event_norm_data: a normalized field to summarize the event
 #       * alert -> signature
 #       * dns   -> rrname
@@ -506,12 +533,14 @@ export_ssh_csv() {
 #       * tls   -> sni
 #       * ftp   -> command + command_data
 #       * smb   -> share (fallback to filename if share is missing)
+#       * ssh   -> client software version
+#       * rdp   -> RDP event type (initial_request, tls_handshake, etc.)
 #   - src_ip, src_port, dest_ip, dest_port, proto
 #   - extra: JSON of the remaining event fields
 #
 # Notes:
 # - The CSV is NDJSON-safe and works with Suricata's default line-delimited eve.json
-# - SMB events now included, normalized by share/filename for easier timeline analysis
+# - SMB, SSH and RDP events are included and normalized for cross-protocol analysis
 # - Output file: ${OUTDIR}/${PCAP_BASENAME}_timeline.csv
 #------------------------------------------------------------------------------
 
@@ -523,7 +552,7 @@ export_timeline_csv() {
     echo "timestamp,event_type,event_norm_data,src_ip,src_port,dest_ip,dest_port,proto,extra" > "$TIMELINE_CSV"
 
     jq -c '
-      select(.event_type | IN("alert","dns","http","tls","ftp","smb","ssh")) |
+      select(.event_type | IN("alert","dns","http","tls","ftp","smb","ssh","rdp")) |
       {
         timestamp: .timestamp,
         event_type: .event_type,
@@ -535,6 +564,10 @@ export_timeline_csv() {
           elif .event_type=="ftp" then ((.ftp.command // "") + " " + (.ftp.command_data // ""))
           elif .event_type=="smb" then (.smb.share // .smb.filename // "")
           elif .event_type=="ssh" then (.ssh.client.software_version // "")
+          elif .event_type=="rdp" then (
+            .rdp.event_type
+            + (if .rdp.protocol then " (" + .rdp.protocol + ")" else "" end)
+          )
           else ""
           end
         ),
@@ -543,7 +576,7 @@ export_timeline_csv() {
         dest_ip: (.dest_ip // ""),
         dest_port: (.dest_port // ""),
         proto: (.proto // ""),
-        extra: (del(.timestamp,.event_type,.alert,.dns,.http,.tls,.ftp,.smb,.ssh,.src_ip,.src_port,.dest_ip,.dest_port,.proto) | @json)
+        extra: (del(.timestamp,.event_type,.alert,.dns,.http,.tls,.ftp,.smb,.ssh,.rdp,.src_ip,.src_port,.dest_ip,.dest_port,.proto) | @json)
       }
     ' "$EVE_JSON" | \
     sort | \
@@ -574,6 +607,7 @@ main() {
     export_ftp_csv
     export_smb_csv
 	export_ssh_csv
+	export_rdp_csv
     export_tls_csv
     export_flows_csv
     export_timeline_csv
