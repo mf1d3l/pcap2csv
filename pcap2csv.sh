@@ -191,6 +191,7 @@ init_paths() {
     TIMELINE_CSV="${OUTDIR}/${PCAP_BASENAME}_timeline.csv"
     FTP_CSV="${OUTDIR}/${PCAP_BASENAME}_ftp.csv"
     SMB_CSV="${OUTDIR}/${PCAP_BASENAME}_smb.csv"
+	SSH_CSV="${OUTDIR}/${PCAP_BASENAME}_ssh.csv"
 }
 
 ############################
@@ -463,6 +464,34 @@ export_smb_csv() {
     log "SMB events exported: $(wc -l < "$SMB_CSV") lines (including header)"
 }
 
+export_ssh_csv() {
+    log "Exporting ${SSH_CSV}"
+
+    # CSV header
+    echo "timestamp,flow_id,src_ip,src_port,dest_ip,dest_port,proto,tx_id,client_proto_version,client_software_version,server_proto_version,server_software_version" > "$SSH_CSV"
+
+    # Extract SSH events from NDJSON Suricata eve.json
+    jq -r '
+      select(.event_type=="ssh") | [
+        .timestamp,
+        .flow_id,
+        .src_ip,
+        .src_port,
+        .dest_ip,
+        .dest_port,
+        .proto,
+        .tx_id,
+        (.ssh.client.proto_version // ""),
+        (.ssh.client.software_version // ""),
+        (.ssh.server.proto_version // ""),
+        (.ssh.server.software_version // "")
+      ] | @csv
+    ' "$EVE_JSON" >> "$SSH_CSV"
+
+    log "SSH events exported: $(wc -l < "$SSH_CSV") lines (including header)"
+}
+
+
 #------------------------------------------------------------------------------
 # export_timeline_csv
 #
@@ -494,7 +523,7 @@ export_timeline_csv() {
     echo "timestamp,event_type,event_norm_data,src_ip,src_port,dest_ip,dest_port,proto,extra" > "$TIMELINE_CSV"
 
     jq -c '
-      select(.event_type | IN("alert","dns","http","tls","ftp","smb")) |
+      select(.event_type | IN("alert","dns","http","tls","ftp","smb","ssh")) |
       {
         timestamp: .timestamp,
         event_type: .event_type,
@@ -505,6 +534,7 @@ export_timeline_csv() {
           elif .event_type=="tls" then (.tls.sni // "")
           elif .event_type=="ftp" then ((.ftp.command // "") + " " + (.ftp.command_data // ""))
           elif .event_type=="smb" then (.smb.share // .smb.filename // "")
+          elif .event_type=="ssh" then (.ssh.client.software_version // "")
           else ""
           end
         ),
@@ -513,7 +543,7 @@ export_timeline_csv() {
         dest_ip: (.dest_ip // ""),
         dest_port: (.dest_port // ""),
         proto: (.proto // ""),
-        extra: (del(.timestamp,.event_type,.alert,.dns,.http,.tls,.ftp,.smb,.src_ip,.src_port,.dest_ip,.dest_port,.proto) | @json)
+        extra: (del(.timestamp,.event_type,.alert,.dns,.http,.tls,.ftp,.smb,.ssh,.src_ip,.src_port,.dest_ip,.dest_port,.proto) | @json)
       }
     ' "$EVE_JSON" | \
     sort | \
@@ -543,6 +573,7 @@ main() {
     export_http_csv
     export_ftp_csv
     export_smb_csv
+	export_ssh_csv
     export_tls_csv
     export_flows_csv
     export_timeline_csv
