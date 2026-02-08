@@ -189,6 +189,8 @@ init_paths() {
     TLS_CSV="${OUTDIR}/${PCAP_BASENAME}_tls.csv"
     FLOWS_CSV="${OUTDIR}/${PCAP_BASENAME}_flows.csv"
     TIMELINE_CSV="${OUTDIR}/${PCAP_BASENAME}_timeline.csv"
+    FTP_CSV="${OUTDIR}/${PCAP_BASENAME}_ftp.csv"
+    SMB_CSV="${OUTDIR}/${PCAP_BASENAME}_smb.csv"
 }
 
 ############################
@@ -387,7 +389,6 @@ export_flows_csv() {
 
 
 export_ftp_csv() {
-    FTP_CSV="${OUTDIR}/${PCAP_BASENAME}_ftp.csv"
     log "Exporting ${FTP_CSV}"
 
     # CSV header
@@ -416,34 +417,75 @@ export_ftp_csv() {
 }
 
 
+export_smb_csv() {
+    log "Exporting ${SMB_CSV}"
 
+    # CSV header
+    echo "timestamp,flow_id,src_ip,src_port,dest_ip,dest_port,proto,smb_id,dialect,command,status,status_code,session_id,tree_id,share,share_type,named_pipe,filename,disposition,access,size,fuid,kerberos_realm,kerberos_snames,dcerpc_request,dcerpc_response,dcerpc_call_id,client_dialects,server_guid,max_read_size,max_write_size" > "$SMB_CSV"
 
-# -----------------------------------------------------------------------------
-# export_timeline_csv()
+    # Extract SMB events from NDJSON Suricata eve.json
+    jq -r '
+      select(.event_type=="smb") | [
+        .timestamp,
+        .flow_id,
+        .src_ip,
+        .src_port,
+        .dest_ip,
+        .dest_port,
+        .proto,
+        .smb.id,
+        .smb.dialect,
+        .smb.command,
+        .smb.status,
+        .smb.status_code,
+        .smb.session_id,
+        .smb.tree_id,
+        (.smb.share // ""),
+        (.smb.share_type // ""),
+        (.smb.named_pipe // ""),
+        (.smb.filename // ""),
+        (.smb.disposition // ""),
+        (.smb.access // ""),
+        (.smb.size // ""),
+        (.smb.fuid // ""),
+        (.smb.kerberos.realm // ""),
+        ((.smb.kerberos.snames // []) | join(";")),
+        (.smb.dcerpc.request // ""),
+        (.smb.dcerpc.response // ""),
+        (.smb.dcerpc.call_id // ""),
+        ((.smb.client_dialects // []) | join(";")),
+        (.smb.server_guid // ""),
+        (.smb.max_read_size // ""),
+        (.smb.max_write_size // "")
+      ] | @csv
+    ' "$EVE_JSON" >> "$SMB_CSV"
+
+    log "SMB events exported: $(wc -l < "$SMB_CSV") lines (including header)"
+}
+
+#------------------------------------------------------------------------------
+# export_timeline_csv
 #
-# Generates a chronological CSV timeline of discrete Suricata events from eve.json.
-# Only includes events with discrete, comparable timestamps:
-#   - alert, dns, http, tls, ftp
-# Flows or other aggregated statistics are intentionally excluded.
-#
-# Columns:
-#   - timestamp       : Suricata event timestamp
-#   - event_type      : Type of the event (alert, dns, http, tls, ftp)
-#   - event_norm_data : Human-readable summary of the event:
-#                        • alert → alert.signature
-#                        • dns   → dns.rrname
-#                        • http  → http.url
-#                        • tls   → tls.sni
-#                        • ftp   → ftp.command + ftp.command_data
-#   - src_ip, src_port, dest_ip, dest_port, proto : Network endpoints
-#   - extra           : JSON-encoded object containing all other event-specific fields
+# Extracts a unified timeline from the Suricata eve.json log into a CSV.
+# Each line represents an event with:
+#   - timestamp: event timestamp
+#   - event_type: Suricata event type (alert, dns, http, tls, ftp, smb)
+#   - event_norm_data: a normalized field to summarize the event
+#       * alert -> signature
+#       * dns   -> rrname
+#       * http  -> url
+#       * tls   -> sni
+#       * ftp   -> command + command_data
+#       * smb   -> share (fallback to filename if share is missing)
+#   - src_ip, src_port, dest_ip, dest_port, proto
+#   - extra: JSON of the remaining event fields
 #
 # Notes:
-#   - Events are sorted chronologically by timestamp for easy timeline analysis.
-#   - event_norm_data is positioned right after event_type for readability.
-#   - extra preserves full event details without flattening, allowing deeper analysis.
-#   - Fully portable: works on POSIX shells, WSL, Linux, and macOS.
-# -----------------------------------------------------------------------------
+# - The CSV is NDJSON-safe and works with Suricata's default line-delimited eve.json
+# - SMB events now included, normalized by share/filename for easier timeline analysis
+# - Output file: ${OUTDIR}/${PCAP_BASENAME}_timeline.csv
+#------------------------------------------------------------------------------
+
 export_timeline_csv() {
     TIMELINE_CSV="${OUTDIR}/${PCAP_BASENAME}_timeline.csv"
     log "Exporting ${TIMELINE_CSV}"
@@ -452,7 +494,7 @@ export_timeline_csv() {
     echo "timestamp,event_type,event_norm_data,src_ip,src_port,dest_ip,dest_port,proto,extra" > "$TIMELINE_CSV"
 
     jq -c '
-      select(.event_type | IN("alert","dns","http","tls","ftp")) |
+      select(.event_type | IN("alert","dns","http","tls","ftp","smb")) |
       {
         timestamp: .timestamp,
         event_type: .event_type,
@@ -462,15 +504,16 @@ export_timeline_csv() {
           elif .event_type=="http" then (.http.url // "")
           elif .event_type=="tls" then (.tls.sni // "")
           elif .event_type=="ftp" then ((.ftp.command // "") + " " + (.ftp.command_data // ""))
+          elif .event_type=="smb" then (.smb.share // .smb.filename // "")
           else ""
           end
         ),
-        src_ip: (if .src_ip then .src_ip else "" end),
-        src_port: (if .src_port then .src_port else "" end),
-        dest_ip: (if .dest_ip then .dest_ip else "" end),
-        dest_port: (if .dest_port then .dest_port else "" end),
-        proto: (if .proto then .proto else "" end),
-        extra: (del(.timestamp,.event_type,.event_norm_data,.src_ip,.src_port,.dest_ip,.dest_port,.proto) | @json)
+        src_ip: (.src_ip // ""),
+        src_port: (.src_port // ""),
+        dest_ip: (.dest_ip // ""),
+        dest_port: (.dest_port // ""),
+        proto: (.proto // ""),
+        extra: (del(.timestamp,.event_type,.alert,.dns,.http,.tls,.ftp,.smb,.src_ip,.src_port,.dest_ip,.dest_port,.proto) | @json)
       }
     ' "$EVE_JSON" | \
     sort | \
@@ -499,6 +542,7 @@ main() {
     export_dns_csv
     export_http_csv
     export_ftp_csv
+    export_smb_csv
     export_tls_csv
     export_flows_csv
     export_timeline_csv
