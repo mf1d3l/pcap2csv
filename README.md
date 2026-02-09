@@ -22,8 +22,8 @@ sudo suricata-update
 
 Clone repository:
 ```
-git clone https://github.com/mf1d3l/pcap2csv.git
-cd pcap2csv
+git clone https://github.com/mf1d3l/Pcap2Timeline.git
+cd Pcap2Timeline
 chmod +x pcap2csv.sh
 ```
 
