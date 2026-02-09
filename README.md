@@ -1,6 +1,6 @@
-# Pcap2Csv —  Fast PCAP triage into analyst-friendly CSV output
+# Pcap2Timeline - Fast PCAP triage into analyst-friendly CSV output
 
-`pcap2csv` is a lightweight shell script wrapper around suricata that transforms raw packet captures into structured CSV datasets using Suricata’s `eve.json` output. It’s built for fast triage: a common workflow is to run the script from WSL on your forensic workstation, then review the resulting CSVs in [Eric Zimmerman's Timeline Explorer](https://ericzimmerman.github.io/#!index.md) for fast filtering and pivoting.
+`pcap2csv.sh` is a lightweight shell script wrapper around suricata that transforms raw packet captures into structured CSV datasets using Suricata’s `eve.json` output. It’s built for fast triage: a common workflow is to run the script from WSL on your forensic workstation, then review the resulting CSVs in [Eric Zimmerman's Timeline Explorer](https://ericzimmerman.github.io/#!index.md) for fast filtering and pivoting.
 
 ## Features
 
