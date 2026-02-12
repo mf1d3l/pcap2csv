@@ -52,8 +52,11 @@ HTTP_CSV=""
 TLS_CSV=""
 FLOWS_CSV=""
 TIMELINE_CSV=""
+FTP_CSV=""
+SMB_CSV=""
+SSH_CSV=""
+RDP_CSV=""
 CUSTOM_RULES_FILE=""
-
 
 print_banner() {
 cat << 'EOF'
@@ -124,7 +127,7 @@ parse_args() {
                 ;;
 
             -R|--rules)
-                if [ -z "$2" ] || [[ "$2" == -* ]]; then
+                if [ -z "$2" ] || [ "${2#-}" != "$2" ]; then
                     error "-R|--rules requires a file path"
                 fi
                 CUSTOM_RULES_FILE="$2"
@@ -160,7 +163,6 @@ parse_args() {
         error "Custom rules file not found: $CUSTOM_RULES_FILE"
     fi
 }
-
 
 
 
@@ -568,7 +570,7 @@ export_timeline_csv() {
         event_norm_data: (
           if .event_type=="alert" then (.alert.signature // "")
           elif .event_type=="dns" then (.dns.rrname // "")
-          elif .event_type=="http" then (.http.url // "")
+          elif .event_type=="http" then ((.http.hostname // "") + (.http.url // ""))
           elif .event_type=="tls" then (.tls.sni // "")
           elif .event_type=="ftp" then ((.ftp.command // "") + " " + (.ftp.command_data // ""))
           elif .event_type=="smb" then (.smb.share // .smb.filename // "")
