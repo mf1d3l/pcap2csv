@@ -570,7 +570,7 @@ export_timeline_csv() {
         event_norm_data: (
           if .event_type=="alert" then (.alert.signature // "")
           elif .event_type=="dns" then (.dns.rrname // "")
-          elif .event_type=="http" then ((.http.hostname // "") + (.http.url // ""))
+          elif .event_type=="http" then ("http://" + (.http.hostname // "") + (.http.url // ""))
           elif .event_type=="tls" then (.tls.sni // "")
           elif .event_type=="ftp" then ((.ftp.command // "") + " " + (.ftp.command_data // ""))
           elif .event_type=="smb" then (.smb.share // .smb.filename // "")
@@ -587,7 +587,7 @@ export_timeline_csv() {
         dest_ip: (.dest_ip // ""),
         dest_port: (.dest_port // ""),
         proto: (.proto // ""),
-        extra: (del(.timestamp,.flow_id,.event_type,.alert,.dns,.http,.tls,.ftp,.smb,.ssh,.rdp,.src_ip,.src_port,.dest_ip,.dest_port,.proto) | @json)
+        extra: (del(.timestamp,.flow_id,.event_type,.src_ip,.src_port,.dest_ip,.dest_port,.proto) | @json)
       }
     ' "$EVE_JSON" | \
     sort | \
