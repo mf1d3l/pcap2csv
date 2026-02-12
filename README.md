@@ -4,12 +4,12 @@
 
 ## Features
 
-- Runs Suricata on PCAP files to extract alerts, HTTP, DNS, TLS, FTP events, and connection flows.
+- Runs Suricata on PCAP files to extract alerts, HTTP, DNS, TLS, FTP, SMB, SSH, RDP events, and connection flows.
 - Converts Suricata’s EVE JSON logs into multiple CSV files, one per event type.
 - Generates a chronologically sorted timeline CSV combining all event types.
 - Supports custom Suricata rules for tailored detection.
-- Fully POSIX-compliant, portable across Linux, macOS, and WSL.
-- Minimal dependencies: only suricata and jq required.
+- Written in POSIX sh (no bashisms) for portability
+- Minimal runtime dependencies: suricata and jq (plus standard POSIX utilities).
 
 ## Installation
 
