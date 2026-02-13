@@ -209,7 +209,7 @@ run_suricata() {
     TEMP_LOGDIR="${OUTDIR}/${PCAP_BASENAME}_suricata_tmp"
     mkdir -p "$TEMP_LOGDIR"
 
-    CMD="suricata -r \"$PCAP\" -l \"$TEMP_LOGDIR\""
+    CMD="TZ=UTC suricata -r \"$PCAP\" -l \"$TEMP_LOGDIR\""
 
     if [ -n "$CUSTOM_RULES_FILE" ]; then
         log "Using custom rules file: $CUSTOM_RULES_FILE"
